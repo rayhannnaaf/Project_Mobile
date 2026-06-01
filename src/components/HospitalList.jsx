@@ -75,7 +75,7 @@ export default function HospitalList() {
         )}
         ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
         contentContainerStyle={styles.listContent}
-        horizontal
+        horizontal={true}
         showsHorizontalScrollIndicator={false}
       />
     </View>

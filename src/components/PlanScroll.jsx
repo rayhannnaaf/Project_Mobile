@@ -35,7 +35,7 @@ export default function PlanScroll() {
       </Text>
 
       <ScrollView
-        horizontal
+        horizontal={true}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         decelerationRate="fast"
@@ -49,13 +49,13 @@ export default function PlanScroll() {
               style={[
                 styles.planCard,
                 { backgroundColor: plan.color },
-                isSelected && {
+                isSelected === true && {
                   borderColor: plan.borderColor,
                   borderWidth: 2.5,
                 },
               ]}
             >
-              {plan.popular && (
+              {plan.popular === true && (
                 <View style={styles.popularBadge}>
                   <Text style={styles.popularText}>
                     {'⭐ Terpopuler'}
@@ -88,11 +88,7 @@ export default function PlanScroll() {
               </View>
 
               <Button
-                title={
-                  isSelected
-                    ? '✓ Dipilih'
-                    : `Pilih ${String(plan.name)}`
-                }
+                title={isSelected === true ? '✓ Dipilih' : 'Pilih ' + String(plan.name)}
                 onPress={() => handleSelect(plan)}
                 color={plan.borderColor}
               />

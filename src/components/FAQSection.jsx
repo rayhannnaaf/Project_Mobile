@@ -2,69 +2,88 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  SectionList,
+  Image,
+  ScrollView,
   TouchableWithoutFeedback,
   StyleSheet,
-  LayoutAnimation,
+  Dimensions,
+  Alert,
 } from 'react-native';
-import { faqSections } from '../data/data';
+import { bannerList } from '../data/data';
 
-const FAQItem = ({ item }) => {
-  const [isOpen, setIsOpen] = useState(false);
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const BANNER_WIDTH = SCREEN_WIDTH - 32;
 
-  const toggleOpen = () => {
-    LayoutAnimation.easeInEaseOut();
-    setIsOpen(!isOpen);
+export default function BannerSlider() {
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const handleScroll = (event) => {
+    const scrollX = event.nativeEvent.contentOffset.x;
+    const index = Math.round(scrollX / (BANNER_WIDTH + 12));
+    setActiveIndex(index);
   };
 
   return (
-    <TouchableWithoutFeedback onPress={toggleOpen}>
-      <View style={styles.faqItem}>
-        <View style={styles.questionRow}>
-          <Text style={styles.questionText}>
-            {String(item.question)}
-          </Text>
-
-          <Text style={[styles.arrowIcon, isOpen && styles.arrowOpen]}>
-            {'▼'}
-          </Text>
-        </View>
-
-        {isOpen && (
-          <View style={styles.answerBox}>
-            <Text style={styles.answerText}>
-              {String(item.answer)}
-            </Text>
-          </View>
-        )}
-      </View>
-    </TouchableWithoutFeedback>
-  );
-};
-
-export default function FAQSection() {
-  return (
     <View style={styles.wrapper}>
       <Text style={styles.sectionTitle}>
-        {'❓ FAQ — Pertanyaan Umum'}
+        {'🎁 Promo & Penawaran'}
       </Text>
 
-      <SectionList
-        sections={faqSections}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => <FAQItem item={item} />}
-        renderSectionHeader={({ section }) => (
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionHeaderText}>
-              {String(section.title)}
-            </Text>
-          </View>
-        )}
-        ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
-        SectionSeparatorComponent={() => <View style={styles.sectionSeparator} />}
-        stickySectionHeadersEnabled
-        scrollEnabled={false}
-      />
+      <ScrollView
+        horizontal={true}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+      >
+        {bannerList.map((banner) => (
+          <TouchableWithoutFeedback
+            key={banner.id}
+            onPress={() =>
+              Alert.alert(
+                'Promo Dipilih! 🎉',
+                `Kamu memilih: ${String(banner.title).replace('\n', ' ')}`
+              )
+            }
+          >
+            <View style={styles.bannerCard}>
+              <Image
+                source={{ uri: banner.image }}
+                style={styles.bannerImage}
+                resizeMode="cover"
+              />
+
+              <View
+                style={[
+                  styles.overlay,
+                  { backgroundColor: banner.color + 'CC' },
+                ]}
+              />
+
+              <View style={styles.bannerText}>
+                <Text style={styles.bannerTitle}>
+                  {String(banner.title)}
+                </Text>
+                <Text style={styles.bannerSubtitle}>
+                  {String(banner.subtitle)}
+                </Text>
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        ))}
+      </ScrollView>
+
+      <View style={styles.dotRow}>
+        {bannerList.map((_, index) => (
+          <View
+            key={index.toString()}
+            style={[
+              styles.dot,
+              activeIndex === index && styles.dotActive,
+            ]}
+          />
+        ))}
+      </View>
     </View>
   );
 }
@@ -80,64 +99,57 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 12,
   },
-  sectionHeader: {
-    backgroundColor: '#EFF6FF',
+  scrollContent: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderLeftWidth: 4,
-    borderLeftColor: '#0A2540',
-  },
-  sectionHeaderText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#0A2540',
-  },
-  faqItem: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  questionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
     gap: 12,
   },
-  questionText: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#0A2540',
-    lineHeight: 20,
+  bannerCard: {
+    width: BANNER_WIDTH,
+    height: 160,
+    borderRadius: 16,
+    overflow: 'hidden',
+    position: 'relative',
   },
-  arrowIcon: {
-    fontSize: 11,
-    color: '#5A7184',
-    marginTop: 3,
-    transform: [{ rotate: '0deg' }],
+  bannerImage: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
   },
-  arrowOpen: {
-    transform: [{ rotate: '180deg' }],
-    color: '#00C8A0',
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.75,
   },
-  answerBox: {
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#EFF6FF',
+  bannerText: {
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
   },
-  answerText: {
+  bannerTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    lineHeight: 24,
+    marginBottom: 4,
+  },
+  bannerSubtitle: {
     fontSize: 12,
-    color: '#5A7184',
-    lineHeight: 19,
+    color: 'rgba(255,255,255,0.85)',
+    fontWeight: '500',
   },
-  itemSeparator: {
-    height: 1,
-    backgroundColor: '#F0F4F8',
-    marginHorizontal: 16,
+  dotRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 10,
+    gap: 6,
   },
-  sectionSeparator: {
-    height: 8,
-    backgroundColor: '#F0F4F8',
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#CBD5E1',
+  },
+  dotActive: {
+    width: 18,
+    backgroundColor: '#0A2540',
   },
 });

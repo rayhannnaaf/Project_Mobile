@@ -30,7 +30,7 @@ export default function BannerSlider() {
       </Text>
 
       <ScrollView
-        horizontal
+        horizontal={true}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         onScroll={handleScroll}

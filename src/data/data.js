@@ -49,7 +49,6 @@ export const hospitalList = [
   },
 ];
 
-
 export const faqSections = [
   {
     title: '📋 Pendaftaran & Aktivasi',
@@ -116,8 +115,6 @@ export const faqSections = [
   },
 ];
 
-
-
 export const planList = [
   {
     id: 'p1',
@@ -126,7 +123,13 @@ export const planList = [
     icon: '🌱',
     color: '#E3F2FD',
     borderColor: '#1565C0',
-    benefits: ['Rawat inap Rp 50 juta/tahun', 'Rawat jalan 6x/tahun', '500+ rumah sakit', 'Klaim online 24 jam'],
+    popular: false, // ✅ explicit boolean
+    benefits: [
+      'Rawat inap Rp 50 juta/tahun',
+      'Rawat jalan 6x/tahun',
+      '500+ rumah sakit',
+      'Klaim online 24 jam',
+    ],
   },
   {
     id: 'p2',
@@ -135,8 +138,14 @@ export const planList = [
     icon: '⚡',
     color: '#E8F5E9',
     borderColor: '#2E7D32',
-    benefits: ['Rawat inap Rp 150 juta/tahun', 'Rawat jalan unlimited', '2.000+ rumah sakit', 'Gigi & mata included', 'Proteksi 1 anak'],
-    popular: true,
+    popular: true, // ✅ explicit boolean
+    benefits: [
+      'Rawat inap Rp 150 juta/tahun',
+      'Rawat jalan unlimited',
+      '2.000+ rumah sakit',
+      'Gigi & mata included',
+      'Proteksi 1 anak',
+    ],
   },
   {
     id: 'p3',
@@ -145,10 +154,17 @@ export const planList = [
     icon: '👑',
     color: '#FFF3E0',
     borderColor: '#E65100',
-    benefits: ['Rawat inap Rp 500 juta/tahun', 'Spesialis unlimited', 'RS internasional', 'Mental health cover', 'Proteksi 3 anak', 'Medical check-up tahunan'],
+    popular: false, // ✅ explicit boolean
+    benefits: [
+      'Rawat inap Rp 500 juta/tahun',
+      'Spesialis unlimited',
+      'RS internasional',
+      'Mental health cover',
+      'Proteksi 3 anak',
+      'Medical check-up tahunan',
+    ],
   },
 ];
-
 
 export const bannerList = [
   {
