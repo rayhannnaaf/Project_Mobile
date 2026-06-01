@@ -1,16 +1,19 @@
 /**
- * SearchScreen.js
- * Fitur: Cari RS yang menerima BPJS
- * Komponen: FlatList, Image, TouchableWithoutFeedback, TextInput
+ * SearchScreen.jsx
+ * Animasi:
+ * 1. Search bar — focus expand + border color interpolation
+ * 2. FlatList items — slide-up entrance dengan stagger per item
+ * 3. Filter chips — spring bounce saat dipilih
+ * 4. Clear button — fade + scale masuk/keluar
+ * 5. Empty state — pulse animation
  */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import {
-  View, Text, FlatList, Image, TouchableWithoutFeedback,
-  TextInput, StyleSheet, Alert,
+  View, Text, FlatList, Image, TouchableOpacity,
+  TextInput, StyleSheet, Alert, Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Data RS yang menyediakan layanan BPJS
 const BPJS_HOSPITALS = [
   {
     id: '1',
@@ -102,67 +105,212 @@ const BPJS_HOSPITALS = [
   },
 ];
 
-// Komponen kartu RS BPJS
-const BPJSCard = ({ item }) => (
-  <TouchableWithoutFeedback
-    onPress={() =>
-      Alert.alert(
-        `${item.name} 🏥`,
-        `📍 ${item.address}\n📞 ${item.phone}\n⭐ Rating: ${item.rating}\n✅ BPJS: ${item.bpjsClass.join(', ')}`
-      )
-    }
-  >
-    <View style={s.card}>
-      {/* Foto RS dari CDN */}
-      <Image source={{ uri: item.img }} style={s.cardImg} resizeMode="cover" />
+const FILTER_CHIPS = ['Semua', 'Tipe A', 'Tipe B', 'Jakarta', 'Bandung', 'Surabaya'];
 
-      {/* Badge BPJS */}
-      <View style={s.bpjsBadge}>
-        <Text style={s.bpjsText}>✅ BPJS</Text>
-      </View>
+// ── Animated BPJS Card dengan slide-up per item ──
+const BPJSCard = React.memo(({ item, index }) => {
+  const slideAnim  = useRef(new Animated.Value(50)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+  const scale       = useRef(new Animated.Value(1)).current;
 
-      <View style={s.cardBody}>
-        <View style={s.cardTop}>
-          <View style={{ flex: 1 }}>
-            <Text style={s.cardName} numberOfLines={1}>{item.name}</Text>
-            <Text style={s.cardCity}>📍 {item.city}</Text>
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        delay: index * 80,
+        useNativeDriver: true,
+        tension: 65,
+        friction: 9,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: 1,
+        delay: index * 80,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  const handlePressIn = () =>
+    Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, tension: 300, friction: 10 }).start();
+  const handlePressOut = () =>
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, tension: 300, friction: 10 }).start();
+
+  return (
+    <TouchableOpacity
+      onPress={() =>
+        Alert.alert(
+          `${item.name} 🏥`,
+          `📍 ${item.address}\n📞 ${item.phone}\n⭐ ${item.rating}\n✅ ${item.bpjsClass.join(', ')}`
+        )
+      }
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      activeOpacity={1}
+    >
+      <Animated.View
+        style={[
+          s.card,
+          {
+            opacity: opacityAnim,
+            transform: [{ translateY: slideAnim }, { scale }],
+          },
+        ]}
+      >
+        <Image source={{ uri: item.img }} style={s.cardImg} resizeMode="cover" />
+        <View style={s.bpjsBadge}>
+          <Text style={s.bpjsText}>✅ BPJS</Text>
+        </View>
+        <View style={s.cardBody}>
+          <View style={s.cardTop}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.cardName} numberOfLines={1}>{item.name}</Text>
+              <Text style={s.cardCity}>📍 {item.city}</Text>
+            </View>
+            <View style={s.ratingBox}>
+              <Text style={s.ratingTxt}>⭐ {item.rating}</Text>
+            </View>
           </View>
-          <View style={s.ratingBox}>
-            <Text style={s.ratingTxt}>⭐ {item.rating}</Text>
+          <View style={s.cardBottom}>
+            <View style={s.typeBadge}>
+              <Text style={s.typeText}>{item.type}</Text>
+            </View>
+            <View style={s.classRow}>
+              {item.bpjsClass.map((cls, i) => (
+                <View key={i} style={s.classBadge}>
+                  <Text style={s.classTxt}>{cls}</Text>
+                </View>
+              ))}
+            </View>
           </View>
         </View>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+});
 
-        <View style={s.cardBottom}>
-          <View style={s.typeBadge}>
-            <Text style={s.typeText}>{item.type}</Text>
-          </View>
-          {/* Kelas BPJS yang tersedia */}
-          <View style={s.classRow}>
-            {item.bpjsClass.map((cls, i) => (
-              <View key={i} style={s.classBadge}>
-                <Text style={s.classTxt}>{cls}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-      </View>
-    </View>
-  </TouchableWithoutFeedback>
-);
+// ── Filter Chip dengan spring bounce ──
+function FilterChip({ label, isActive, onPress }) {
+  const scale  = useRef(new Animated.Value(1)).current;
+  const bgAnim = useRef(new Animated.Value(isActive ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.spring(bgAnim, {
+      toValue: isActive ? 1 : 0,
+      useNativeDriver: false,
+      tension: 120,
+      friction: 8,
+    }).start();
+  }, [isActive]);
+
+  const handlePress = () => {
+    // Spring bounce saat dipilih
+    Animated.sequence([
+      Animated.spring(scale, { toValue: 0.88, useNativeDriver: true, tension: 400, friction: 6 }),
+      Animated.spring(scale, { toValue: 1,    useNativeDriver: true, tension: 200, friction: 6 }),
+    ]).start();
+    onPress(label);
+  };
+
+  const backgroundColor = bgAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['#fff', '#0A2540'],
+  });
+  const color = bgAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['#5A7184', '#fff'],
+  });
+
+  return (
+    <TouchableOpacity onPress={handlePress} activeOpacity={1}>
+      <Animated.View
+        style={[
+          s.chip,
+          { backgroundColor, transform: [{ scale }] },
+          isActive && s.chipActive,
+        ]}
+      >
+        <Animated.Text style={[s.chipTxt, { color }]}>{label}</Animated.Text>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+}
 
 export default function SearchScreen() {
-  const [query, setQuery] = useState('');
+  const [query, setQuery]           = useState('');
+  const [activeFilter, setFilter]   = useState('Semua');
+  const [isFocused, setFocused]     = useState(false);
 
-  // useMemo: filter hanya dihitung ulang saat query atau data berubah
-  // Ini optimasi performa — tidak filter ulang saat state lain berubah
-  const filtered = useMemo(() =>
-    BPJS_HOSPITALS.filter(
-      (h) =>
-        h.name.toLowerCase().includes(query.toLowerCase()) ||
-        h.city.toLowerCase().includes(query.toLowerCase())
-    ),
-    [query]
-  );
+  // ── Search bar focus animation ──
+  const focusAnim = useRef(new Animated.Value(0)).current;
+  // Clear button visibility
+  const clearOpacity = useRef(new Animated.Value(0)).current;
+  const clearScale   = useRef(new Animated.Value(0.5)).current;
+
+  const handleFocus = () => {
+    setFocused(true);
+    Animated.spring(focusAnim, {
+      toValue: 1,
+      useNativeDriver: false,
+      tension: 120,
+      friction: 8,
+    }).start();
+  };
+
+  const handleBlur = () => {
+    setFocused(false);
+    Animated.spring(focusAnim, {
+      toValue: 0,
+      useNativeDriver: false,
+      tension: 120,
+      friction: 8,
+    }).start();
+  };
+
+  // Animasi clear button saat teks berubah
+  useEffect(() => {
+    if (query.length > 0) {
+      Animated.parallel([
+        Animated.spring(clearOpacity, { toValue: 1, useNativeDriver: true, tension: 200 }),
+        Animated.spring(clearScale,   { toValue: 1, useNativeDriver: true, tension: 200 }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(clearOpacity, { toValue: 0, duration: 150, useNativeDriver: true }),
+        Animated.spring(clearScale,   { toValue: 0.5, useNativeDriver: true, tension: 200 }),
+      ]).start();
+    }
+  }, [query]);
+
+  // Interpolate border color saat focus
+  const borderColor = focusAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['rgba(0,0,0,0.08)', '#00C8A0'],
+  });
+  const shadowOpacity = focusAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.06, 0.18],
+  });
+
+  const filtered = useMemo(() => {
+    let result = BPJS_HOSPITALS;
+    if (query) {
+      result = result.filter(
+        h =>
+          h.name.toLowerCase().includes(query.toLowerCase()) ||
+          h.city.toLowerCase().includes(query.toLowerCase())
+      );
+    }
+    if (activeFilter !== 'Semua') {
+      result = result.filter(
+        h => h.type.includes(activeFilter) || h.city === activeFilter
+      );
+    }
+    return result;
+  }, [query, activeFilter]);
+
+  // Re-mount list ketika filter berubah agar slide-in ulang
+  const listKey = `${activeFilter}-${query}`;
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
@@ -172,8 +320,16 @@ export default function SearchScreen() {
         <Text style={s.headerSub}>Temukan rumah sakit mitra BPJS terdekat</Text>
       </View>
 
-      {/* Search Bar */}
-      <View style={s.searchBox}>
+      {/* ── Search Bar dengan focus animation ── */}
+      <Animated.View
+        style={[
+          s.searchBox,
+          {
+            borderColor,
+            shadowOpacity,
+          },
+        ]}
+      >
         <Text style={s.searchIcon}>🔍</Text>
         <TextInput
           style={s.searchInput}
@@ -181,37 +337,76 @@ export default function SearchScreen() {
           placeholderTextColor="#8FA3B1"
           value={query}
           onChangeText={setQuery}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
         />
-        {query.length > 0 && (
-          <TouchableWithoutFeedback onPress={() => setQuery('')}>
-            <View style={s.clearBtn}>
-              <Text style={{ fontSize: 14, color: '#5A7184' }}>✕</Text>
-            </View>
-          </TouchableWithoutFeedback>
+        {/* Clear button dengan fade + scale */}
+        <Animated.View
+          style={{
+            opacity: clearOpacity,
+            transform: [{ scale: clearScale }],
+          }}
+          pointerEvents={query.length > 0 ? 'auto' : 'none'}
+        >
+          <TouchableOpacity onPress={() => setQuery('')} style={s.clearBtn}>
+            <Text style={{ fontSize: 14, color: '#5A7184' }}>✕</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </Animated.View>
+
+      {/* ── Filter Chips ── */}
+      <FlatList
+        data={FILTER_CHIPS}
+        keyExtractor={item => item}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={s.chipRow}
+        renderItem={({ item }) => (
+          <FilterChip
+            label={item}
+            isActive={activeFilter === item}
+            onPress={setFilter}
+          />
         )}
-      </View>
+        style={{ flexGrow: 0 }}
+      />
 
       {/* Counter hasil */}
-      <Text style={s.counter}>
-        {filtered.length} RS BPJS ditemukan
-      </Text>
+      <Text style={s.counter}>{filtered.length} RS BPJS ditemukan</Text>
 
-      {/* FlatList daftar RS BPJS */}
+      {/* ── FlatList RS BPJS ── */}
       <FlatList
+        key={listKey}
         data={filtered}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <BPJSCard item={item} />}
+        keyExtractor={item => item.id}
+        renderItem={({ item, index }) => <BPJSCard item={item} index={index} />}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 14 }}
         showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={s.empty}>
-            <Text style={{ fontSize: 40 }}>🏥</Text>
-            <Text style={s.emptyText}>RS tidak ditemukan</Text>
-            <Text style={s.emptySub}>Coba kata kunci lain</Text>
-          </View>
-        }
+        ListEmptyComponent={<EmptyState />}
       />
     </SafeAreaView>
+  );
+}
+
+// ── Empty state dengan pulse animation ──
+function EmptyState() {
+  const pulse = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1.12, duration: 700, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1,    duration: 700, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+
+  return (
+    <View style={s.empty}>
+      <Animated.Text style={{ fontSize: 48, transform: [{ scale: pulse }] }}>🏥</Animated.Text>
+      <Text style={s.emptyText}>RS tidak ditemukan</Text>
+      <Text style={s.emptySub}>Coba kata kunci lain</Text>
+    </View>
   );
 }
 
@@ -227,16 +422,24 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#fff', marginHorizontal: 16,
     borderRadius: 14, paddingHorizontal: 14,
-    marginTop: -16, // overlap ke header
+    marginTop: -16,
+    borderWidth: 1.5,
     elevation: 4, shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 }, shadowRadius: 6,
   },
   searchIcon: { fontSize: 16, marginRight: 8 },
   searchInput: { flex: 1, paddingVertical: 14, fontSize: 14, color: '#0A2540' },
   clearBtn: { padding: 6 },
+  chipRow: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
+  chip: {
+    borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7,
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)',
+  },
+  chipActive: { borderColor: '#0A2540' },
+  chipTxt: { fontSize: 12, fontWeight: '600' },
   counter: {
     fontSize: 12, color: '#5A7184', fontWeight: '600',
-    marginHorizontal: 16, marginTop: 12, marginBottom: 4,
+    marginHorizontal: 16, marginBottom: 4,
   },
   card: {
     backgroundColor: '#fff', borderRadius: 16,
@@ -255,22 +458,13 @@ const s = StyleSheet.create({
   cardTop: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
   cardName: { fontSize: 14, fontWeight: '700', color: '#0A2540', marginBottom: 3 },
   cardCity: { fontSize: 12, color: '#5A7184' },
-  ratingBox: {
-    backgroundColor: '#FFF8E1', borderRadius: 8,
-    paddingHorizontal: 8, paddingVertical: 4,
-  },
+  ratingBox: { backgroundColor: '#FFF8E1', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   ratingTxt: { fontSize: 12, fontWeight: '700', color: '#F57F17' },
   cardBottom: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  typeBadge: {
-    backgroundColor: '#EFF6FF', borderRadius: 8,
-    paddingHorizontal: 8, paddingVertical: 4,
-  },
+  typeBadge: { backgroundColor: '#EFF6FF', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   typeText: { fontSize: 11, color: '#1565C0', fontWeight: '600' },
   classRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
-  classBadge: {
-    backgroundColor: '#E8F5E9', borderRadius: 8,
-    paddingHorizontal: 8, paddingVertical: 4,
-  },
+  classBadge: { backgroundColor: '#E8F5E9', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   classTxt: { fontSize: 11, color: '#2E7D32', fontWeight: '600' },
   empty: { alignItems: 'center', paddingTop: 60, gap: 8 },
   emptyText: { fontSize: 16, fontWeight: '700', color: '#0A2540' },

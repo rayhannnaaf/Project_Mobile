@@ -1,17 +1,22 @@
 /**
- * HomeScreen.js
- * Komponen: ScrollView, FlatList, Image, TouchableWithoutFeedback, Button
+ * HomeScreen.jsx
+ * Animasi:
+ * 1. DiffClamp — header collapse/expand saat scroll
+ * 2. Stagger entrance — kartu polis, quick actions, banner muncul berurutan
+ * 3. Interpolation — notif bell bergoyang saat mount
+ * 4. Gesture press scale — semua TouchableOpacity punya spring feedback
  */
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   View, Text, ScrollView, FlatList, Image,
-  TouchableWithoutFeedback, StyleSheet, Alert, Dimensions,
+  TouchableOpacity, StyleSheet, Alert, Dimensions, Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width: SW } = Dimensions.get('window');
 
-// Data banner promo
+const HEADER_HEIGHT = 68; // tinggi header yang akan di-collapse
+
 const BANNERS = [
   {
     id: 'b1',
@@ -36,7 +41,6 @@ const BANNERS = [
   },
 ];
 
-// Data rumah sakit (non-BPJS untuk Home, BPJS ada di SearchScreen)
 const HOSPITALS = [
   {
     id: '1',
@@ -79,11 +83,125 @@ const QUICK_ACTIONS = [
   { icon: '👨‍⚕️', label: 'Dokter' },
 ];
 
+// ── Komponen tombol dengan spring press feedback ──
+function AnimPressable({ onPress, children, style }) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const onPressIn = () =>
+    Animated.spring(scale, {
+      toValue: 0.93,
+      useNativeDriver: true,
+      tension: 300,
+      friction: 10,
+    }).start();
+
+  const onPressOut = () =>
+    Animated.spring(scale, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 300,
+      friction: 10,
+    }).start();
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      activeOpacity={1}
+    >
+      <Animated.View style={[style, { transform: [{ scale }] }]}>
+        {children}
+      </Animated.View>
+    </TouchableOpacity>
+  );
+}
+
 export default function HomeScreen() {
+  // ── 1. DiffClamp untuk collapsing header ──
+  const scrollY = useRef(new Animated.Value(0)).current;
+
+  // diffClamp menjepit delta scroll antara 0 dan HEADER_HEIGHT
+  const clampedScroll = Animated.diffClamp(scrollY, 0, HEADER_HEIGHT);
+
+  const headerTranslateY = clampedScroll.interpolate({
+    inputRange: [0, HEADER_HEIGHT],
+    outputRange: [0, -HEADER_HEIGHT],
+    extrapolate: 'clamp',
+  });
+
+  const headerOpacity = clampedScroll.interpolate({
+    inputRange: [0, HEADER_HEIGHT / 2],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+
+  // ── 2. Stagger entrance animations ──
+  const cardAnim  = useRef(new Animated.Value(0)).current; // kartu polis
+  const qaAnim    = useRef(new Animated.Value(0)).current; // quick actions
+  const bannerAnim= useRef(new Animated.Value(0)).current; // banner
+  const listAnim  = useRef(new Animated.Value(0)).current; // RS list
+
+  useEffect(() => {
+    Animated.stagger(120, [
+      Animated.spring(cardAnim,   { toValue: 1, useNativeDriver: true, tension: 60, friction: 8 }),
+      Animated.spring(qaAnim,     { toValue: 1, useNativeDriver: true, tension: 60, friction: 8 }),
+      Animated.spring(bannerAnim, { toValue: 1, useNativeDriver: true, tension: 60, friction: 8 }),
+      Animated.spring(listAnim,   { toValue: 1, useNativeDriver: true, tension: 60, friction: 8 }),
+    ]).start();
+  }, []);
+
+  const makeEntrance = (anim, offsetY = 30) => ({
+    opacity: anim,
+    transform: [{
+      translateY: anim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [offsetY, 0],
+      }),
+    }],
+  });
+
+  // ── 3. Notif bell shake animation ──
+  const bellShake = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const shake = () =>
+      Animated.sequence([
+        Animated.timing(bellShake, { toValue: 1,  duration: 80,  useNativeDriver: true }),
+        Animated.timing(bellShake, { toValue: -1, duration: 80,  useNativeDriver: true }),
+        Animated.timing(bellShake, { toValue: 1,  duration: 80,  useNativeDriver: true }),
+        Animated.timing(bellShake, { toValue: -1, duration: 80,  useNativeDriver: true }),
+        Animated.timing(bellShake, { toValue: 0,  duration: 80,  useNativeDriver: true }),
+      ]);
+
+    // Delay sedikit lalu guncang, ulangi setiap 4 detik
+    const timeout = setTimeout(() => {
+      shake().start();
+      const interval = setInterval(() => shake().start(), 4000);
+      return () => clearInterval(interval);
+    }, 1500);
+
+    return () => clearTimeout(timeout);
+  }, []);
+
+  const bellRotate = bellShake.interpolate({
+    inputRange: [-1, 1],
+    outputRange: ['-20deg', '20deg'],
+  });
+
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
-      {/* ── HEADER ── */}
-      <View style={s.header}>
+
+      {/* ── HEADER dengan DiffClamp collapse ── */}
+      <Animated.View
+        style={[
+          s.header,
+          {
+            transform: [{ translateY: headerTranslateY }],
+            opacity: headerOpacity,
+          },
+        ]}
+      >
         <View style={s.headerLeft}>
           <Image
             source={{ uri: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&q=80' }}
@@ -94,71 +212,84 @@ export default function HomeScreen() {
             <Text style={s.name}>Budi Santoso</Text>
           </View>
         </View>
-        <TouchableWithoutFeedback onPress={() => Alert.alert('🔔 Notifikasi', '3 notifikasi baru')}>
+
+        {/* Notif bell dengan shake interpolation */}
+        <TouchableOpacity onPress={() => Alert.alert('🔔 Notifikasi', '3 notifikasi baru')}>
           <View style={s.notifBtn}>
-            <Text style={{ fontSize: 18 }}>🔔</Text>
-            <View style={s.notifBadge}><Text style={s.notifNum}>3</Text></View>
-          </View>
-        </TouchableWithoutFeedback>
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
-
-        {/* ── KARTU POLIS ── */}
-        <View style={s.policyCard}>
-          <View>
-            <Text style={s.polLabel}>Status Polis</Text>
-            <Text style={s.polName}>Paket Standard</Text>
-            <View style={s.activeBadge}>
-              <View style={s.dot} />
-              <Text style={s.activeText}>Aktif</Text>
+            <Animated.Text
+              style={{ fontSize: 18, transform: [{ rotate: bellRotate }] }}
+            >
+              🔔
+            </Animated.Text>
+            <View style={s.notifBadge}>
+              <Text style={s.notifNum}>3</Text>
             </View>
           </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={s.polLabel}>Berlaku hingga</Text>
-            <Text style={s.polDate}>31 Des 2025</Text>
-            <Text style={s.polNo}>HS-2024-00421</Text>
-          </View>
-        </View>
+        </TouchableOpacity>
+      </Animated.View>
 
-        {/* ── QUICK ACTIONS ── */}
-        <View style={s.qaBox}>
+      {/* ── SCROLL VIEW dengan listener untuk DiffClamp ── */}
+      <Animated.ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingBottom: 24,
+          paddingTop: HEADER_HEIGHT, // kompensasi header yang overlap
+        }}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
+      >
+
+        {/* ── KARTU POLIS — entrance animation ── */}
+        <Animated.View style={makeEntrance(cardAnim)}>
+          <AnimPressable
+            onPress={() => Alert.alert('Polis', 'Paket Standard aktif')}
+            style={s.policyCard}
+          >
+            <View>
+              <Text style={s.polLabel}>Status Polis</Text>
+              <Text style={s.polName}>Paket Standard</Text>
+              <View style={s.activeBadge}>
+                <View style={s.dot} />
+                <Text style={s.activeText}>Aktif</Text>
+              </View>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={s.polLabel}>Berlaku hingga</Text>
+              <Text style={s.polDate}>31 Des 2025</Text>
+              <Text style={s.polNo}>HS-2024-00421</Text>
+            </View>
+          </AnimPressable>
+        </Animated.View>
+
+        {/* ── QUICK ACTIONS — entrance + per-item stagger ── */}
+        <Animated.View style={[s.qaBox, makeEntrance(qaAnim)]}>
           <Text style={s.secTitle}>⚡ Aksi Cepat</Text>
           <View style={s.qaRow}>
             {QUICK_ACTIONS.map((q, i) => (
-              <TouchableWithoutFeedback key={i} onPress={() => Alert.alert(q.label)}>
-                <View style={s.qaItem}>
-                  <View style={s.qaIcon}><Text style={{ fontSize: 22 }}>{q.icon}</Text></View>
-                  <Text style={s.qaLabel}>{q.label}</Text>
-                </View>
-              </TouchableWithoutFeedback>
+              <QAItem key={i} item={q} index={i} />
             ))}
           </View>
-        </View>
+        </Animated.View>
 
-        {/* ── BANNER SCROLL ── */}
-        <Text style={[s.secTitle, { marginHorizontal: 16, marginBottom: 10 }]}>🎁 Promo</Text>
-        <ScrollView
-          horizontal={true}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
-        >
-          {BANNERS.map((b) => (
-            <TouchableWithoutFeedback key={b.id} onPress={() => Alert.alert(b.title.replace('\n', ' '))}>
-              <View style={s.bannerCard}>
-                <Image source={{ uri: b.img }} style={s.bannerImg} resizeMode="cover" />
-                <View style={[s.bannerOverlay, { backgroundColor: b.color + 'CC' }]} />
-                <View style={s.bannerText}>
-                  <Text style={s.bannerTitle}>{b.title}</Text>
-                  <Text style={s.bannerSub}>{b.sub}</Text>
-                </View>
-              </View>
-            </TouchableWithoutFeedback>
-          ))}
-        </ScrollView>
+        {/* ── BANNER SCROLL — entrance animation ── */}
+        <Animated.View style={makeEntrance(bannerAnim, 20)}>
+          <Text style={[s.secTitle, { marginHorizontal: 16, marginBottom: 10 }]}>🎁 Promo</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
+          >
+            {BANNERS.map((b) => (
+              <BannerCard key={b.id} banner={b} />
+            ))}
+          </ScrollView>
+        </Animated.View>
 
-        {/* ── DAFTAR RS (FlatList horizontal) ── */}
-        <View style={{ marginTop: 16 }}>
+        {/* ── DAFTAR RS — entrance animation ── */}
+        <Animated.View style={[{ marginTop: 16 }, makeEntrance(listAnim, 20)]}>
           <View style={s.rowBetween}>
             <Text style={[s.secTitle, { marginHorizontal: 16 }]}>🏥 RS Mitra</Text>
             <Text style={[s.seeAll, { marginRight: 16 }]}>Lihat Semua →</Text>
@@ -166,37 +297,160 @@ export default function HomeScreen() {
           <FlatList
             data={HOSPITALS}
             keyExtractor={(item) => item.id}
-            horizontal={true}
+            horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: 16, gap: 12, marginTop: 10 }}
-            renderItem={({ item }) => (
-              <TouchableWithoutFeedback onPress={() => Alert.alert(item.name, `${item.city} · ⭐ ${item.rating}`)}>
-                <View style={s.rsCard}>
-                  <Image source={{ uri: item.img }} style={s.rsImg} resizeMode="cover" />
-                  <View style={s.rsTypeBadge}><Text style={s.rsTypeTxt}>{item.type}</Text></View>
-                  <View style={{ padding: 10 }}>
-                    <Text style={s.rsName} numberOfLines={1}>{item.name}</Text>
-                    <View style={s.rowBetween}>
-                      <Text style={s.rsCity}>📍 {item.city}</Text>
-                      <Text style={s.rsRating}>⭐ {item.rating}</Text>
-                    </View>
-                  </View>
-                </View>
-              </TouchableWithoutFeedback>
-            )}
+            renderItem={({ item, index }) => <HospitalCard item={item} index={index} />}
           />
-        </View>
+        </Animated.View>
 
-      </ScrollView>
+      </Animated.ScrollView>
     </SafeAreaView>
+  );
+}
+
+// ── Quick Action Item dengan individual spring masuk ──
+function QAItem({ item, index }) {
+  const anim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.spring(anim, {
+      toValue: 1,
+      delay: 400 + index * 80,
+      useNativeDriver: true,
+      tension: 80,
+      friction: 7,
+    }).start();
+  }, []);
+
+  const scale = useRef(new Animated.Value(1)).current;
+
+  return (
+    <Animated.View
+      style={{
+        flex: 1,
+        alignItems: 'center',
+        opacity: anim,
+        transform: [{ scale: anim }],
+      }}
+    >
+      <TouchableOpacity
+        onPress={() => Alert.alert(item.label)}
+        onPressIn={() =>
+          Animated.spring(scale, { toValue: 0.88, useNativeDriver: true, tension: 300, friction: 10 }).start()
+        }
+        onPressOut={() =>
+          Animated.spring(scale, { toValue: 1, useNativeDriver: true, tension: 300, friction: 10 }).start()
+        }
+        activeOpacity={1}
+      >
+        <Animated.View style={[s.qaItem, { transform: [{ scale }] }]}>
+          <View style={s.qaIcon}>
+            <Text style={{ fontSize: 22 }}>{item.icon}</Text>
+          </View>
+          <Text style={s.qaLabel}>{item.label}</Text>
+        </Animated.View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+// ── Banner Card dengan scale press ──
+function BannerCard({ banner }) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  return (
+    <TouchableOpacity
+      onPress={() => Alert.alert(banner.title.replace('\n', ' '))}
+      onPressIn={() =>
+        Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, tension: 300, friction: 10 }).start()
+      }
+      onPressOut={() =>
+        Animated.spring(scale, { toValue: 1, useNativeDriver: true, tension: 300, friction: 10 }).start()
+      }
+      activeOpacity={1}
+    >
+      <Animated.View style={[s.bannerCard, { transform: [{ scale }] }]}>
+        <Image source={{ uri: banner.img }} style={s.bannerImg} resizeMode="cover" />
+        <View style={[s.bannerOverlay, { backgroundColor: banner.color + 'CC' }]} />
+        <View style={s.bannerText}>
+          <Text style={s.bannerTitle}>{banner.title}</Text>
+          <Text style={s.bannerSub}>{banner.sub}</Text>
+        </View>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+}
+
+// ── Hospital Card dengan slide-in dari kanan + press scale ──
+function HospitalCard({ item, index }) {
+  const slideAnim = useRef(new Animated.Value(60)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        delay: 600 + index * 100,
+        useNativeDriver: true,
+        tension: 60,
+        friction: 8,
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: 1,
+        delay: 600 + index * 100,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  return (
+    <TouchableOpacity
+      onPress={() => Alert.alert(item.name, `${item.city} · ⭐ ${item.rating}`)}
+      onPressIn={() =>
+        Animated.spring(scale, { toValue: 0.95, useNativeDriver: true, tension: 300, friction: 10 }).start()
+      }
+      onPressOut={() =>
+        Animated.spring(scale, { toValue: 1, useNativeDriver: true, tension: 300, friction: 10 }).start()
+      }
+      activeOpacity={1}
+    >
+      <Animated.View
+        style={[
+          s.rsCard,
+          {
+            opacity: opacityAnim,
+            transform: [{ translateX: slideAnim }, { scale }],
+          },
+        ]}
+      >
+        <Image source={{ uri: item.img }} style={s.rsImg} resizeMode="cover" />
+        <View style={s.rsTypeBadge}>
+          <Text style={s.rsTypeTxt}>{item.type}</Text>
+        </View>
+        <View style={{ padding: 10 }}>
+          <Text style={s.rsName} numberOfLines={1}>{item.name}</Text>
+          <View style={s.rowBetween}>
+            <Text style={s.rsCity}>📍 {item.city}</Text>
+            <Text style={s.rsRating}>⭐ {item.rating}</Text>
+          </View>
+        </View>
+      </Animated.View>
+    </TouchableOpacity>
   );
 }
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#F0F4F8' },
   header: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0,
+    zIndex: 10,
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: '#0A2540', paddingHorizontal: 16, paddingVertical: 12,
+    backgroundColor: '#0A2540', paddingHorizontal: 16,
+    height: HEADER_HEIGHT,
   },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   avatar: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: '#00C8A0' },
@@ -231,11 +485,11 @@ const s = StyleSheet.create({
   polNo: { fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
   qaBox: {
     backgroundColor: '#fff', marginHorizontal: 16, borderRadius: 16,
-    padding: 16, elevation: 2,
+    padding: 16, elevation: 2, marginBottom: 16,
   },
   secTitle: { fontSize: 16, fontWeight: '700', color: '#0A2540', marginBottom: 4 },
   qaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
-  qaItem: { alignItems: 'center', flex: 1, gap: 6 },
+  qaItem: { alignItems: 'center', gap: 6 },
   qaIcon: {
     width: 52, height: 52, borderRadius: 14,
     backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center',
