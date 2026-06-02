@@ -1,11 +1,3 @@
-/**
- * LoginScreen.jsx
- * src/screens/LoginScreen.jsx
- *
- * Props:
- *   navigation  — dari Tab navigator (untuk pindah ke Register)
- *   onLogin     — callback dari AppNavigator untuk masuk ke MainTabs
- */
 import React, { useRef, useEffect, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
@@ -14,7 +6,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-/* ── Spring-press wrapper ── */
 function SpringButton({ onPress, style, children, disabled }) {
   const scale = useRef(new Animated.Value(1)).current;
   const pressIn  = () => Animated.spring(scale, { toValue: 0.95, useNativeDriver: true, tension: 300, friction: 10 }).start();
@@ -26,7 +17,6 @@ function SpringButton({ onPress, style, children, disabled }) {
   );
 }
 
-/* ── Animated input with focus glow ── */
 function AnimInput({ label, placeholder, value, onChangeText, secureTextEntry, keyboardType, icon }) {
   const glow = useRef(new Animated.Value(0)).current;
   const onFocus = () => Animated.timing(glow, { toValue: 1, duration: 200, useNativeDriver: false }).start();
@@ -56,7 +46,6 @@ function AnimInput({ label, placeholder, value, onChangeText, secureTextEntry, k
   );
 }
 
-/* ── LoginScreen ── */
 export default function LoginScreen({ navigation, onLogin }) {
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
@@ -85,7 +74,6 @@ export default function LoginScreen({ navigation, onLogin }) {
       return;
     }
     setLoading(true);
-    // TODO: ganti dengan API call sungguhan
     setTimeout(() => {
       setLoading(false);
       if (onLogin) onLogin(); // ← masuk ke MainTabs
@@ -109,7 +97,6 @@ export default function LoginScreen({ navigation, onLogin }) {
             <Text style={s.tagline}>Perlindungan terbaik untuk hidupmu</Text>
           </Animated.View>
 
-          {/* Form card */}
           <Animated.View style={[s.card, entrance(formAnim, 50)]}>
             <Text style={s.cardTitle}>Masuk ke Akun</Text>
             <Text style={s.cardSub}>Halo! Senang melihatmu kembali 👋</Text>
@@ -141,7 +128,6 @@ export default function LoginScreen({ navigation, onLogin }) {
             </View>
           </Animated.View>
 
-          {/* Footer */}
           <Animated.View style={[s.footer, entrance(footerAnim, 20)]}>
             <Text style={s.footerTxt}>Belum punya akun? </Text>
             <TouchableOpacity onPress={() => navigation.navigate('Register')}>

@@ -1,16 +1,3 @@
-/**
- * AppNavigator.js
- * src/navigation/AppNavigator.js
- *
- * ✅ Zero new packages — uses ONLY what your project already has:
- *    @react-navigation/native        (already installed)
- *    @react-navigation/bottom-tabs  (already installed)
- *
- * Auth flow is handled with simple React state — no stack navigator needed.
- * Login → sets isLoggedIn = true  → MainTabs appears
- * Logout → sets isLoggedIn = false → Auth screens appear
- */
-
 import React, { useState } from 'react';
 import { Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
@@ -21,29 +8,25 @@ import LoginScreen    from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 
 // ── Main screens
-import HomeScreen   from '../screens/HomeScreen';
-import SearchScreen from '../screens/SearchScreen';
-import MutasiScreen from '../screens/MutasiScreen';
-import ProfilScreen from '../screens/ProfilScreen';
+import HomeScreen            from '../screens/HomeScreen';
+import SearchScreen          from '../screens/SearchScreen';
+import MutasiScreen          from '../screens/MutasiScreen';
+import ProfilScreen          from '../screens/ProfilScreen';
+import HospitalManagerScreen from '../screens/HospitalManagerScreen'; 
 
 const Tab = createBottomTabNavigator();
 
-/* ─────────────────────────────────────────
-   Tab icons — sama persis dengan App.js lama
-───────────────────────────────────────── */
+// ── Tab icons
 const TAB_ICONS = {
   Home:   '🏠',
   Search: '🔍',
   Mutasi: '📋',
+  Kelola: '🏥', 
   Profil: '👤',
 };
 
-/* ─────────────────────────────────────────
-   Auth Tab  (Login & Register sebagai tab,
-   tab bar disembunyikan pakai display:none)
-───────────────────────────────────────── */
+
 function AuthTabs({ onLogin }) {
-  // Wrap screens agar bisa passing onLogin prop
   const LoginWrapped    = (props) => <LoginScreen    {...props} onLogin={onLogin} />;
   const RegisterWrapped = (props) => <RegisterScreen {...props} onLogin={onLogin} />;
 
@@ -51,7 +34,7 @@ function AuthTabs({ onLogin }) {
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarStyle: { display: 'none' }, // sembunyikan tab bar di auth
+        tabBarStyle: { display: 'none' },
       }}
     >
       <Tab.Screen name="Login"    component={LoginWrapped} />
@@ -61,7 +44,7 @@ function AuthTabs({ onLogin }) {
 }
 
 /* ─────────────────────────────────────────
-   Main Tab Navigator — sama dengan App.js lama
+   Main Tab Navigator
 ───────────────────────────────────────── */
 function MainTabs({ onLogout }) {
   const ProfilWrapped = (props) => <ProfilScreen {...props} onLogout={onLogout} />;
@@ -71,7 +54,7 @@ function MainTabs({ onLogout }) {
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarIcon: ({ focused }) => (
-          <Text style={{ fontSize: focused ? 22 : 18 }}>
+          <Text style={{ fontSize: focused === true ? 22 : 18 }}>
             {TAB_ICONS[route.name]}
           </Text>
         ),
@@ -93,14 +76,13 @@ function MainTabs({ onLogout }) {
       <Tab.Screen name="Home"   component={HomeScreen} />
       <Tab.Screen name="Search" component={SearchScreen} />
       <Tab.Screen name="Mutasi" component={MutasiScreen} />
+      <Tab.Screen name="Kelola" component={HospitalManagerScreen} /> 
       <Tab.Screen name="Profil" component={ProfilWrapped} />
     </Tab.Navigator>
   );
 }
 
-/* ─────────────────────────────────────────
-   Root — swap Auth ↔ MainTabs via state
-───────────────────────────────────────── */
+
 export default function AppNavigator() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
@@ -109,7 +91,7 @@ export default function AppNavigator() {
 
   return (
     <NavigationContainer>
-      {isLoggedIn
+      {isLoggedIn === true
         ? <MainTabs onLogout={handleLogout} />
         : <AuthTabs onLogin={handleLogin} />
       }

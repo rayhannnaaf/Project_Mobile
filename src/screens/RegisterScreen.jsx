@@ -1,11 +1,3 @@
-/**
- * RegisterScreen.jsx
- * src/screens/RegisterScreen.jsx
- *
- * Props:
- *   navigation  — dari Tab navigator (untuk kembali ke Login)
- *   onLogin     — callback dari AppNavigator untuk langsung masuk setelah daftar
- */
 import React, { useRef, useEffect, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
